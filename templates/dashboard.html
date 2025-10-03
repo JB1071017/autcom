@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - GitHub Contribution Pattern Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .github-grid {
+            display: inline-flex;
+            gap: 4px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+        }
+        .grid-column {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .grid-cell {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+        .cell-filled {
+            background-color: #239A3B;
+        }
+        .cell-empty {
+            background-color: #EBEDF0;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">GitHub Contribution Pattern Generator</h1>
+            <p class="text-gray-600">Welcome, <strong>{{ github_login }}</strong>! Create custom text patterns in your GitHub contribution graph</p>
+            <div class="mt-4 flex justify-center gap-4">
+                <button onclick="logout()" class="bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 transition duration-200">
+                    Logout
+                </button>
+                <button onclick="showHistory()" class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 transition duration-200">
+                    View History
+                </button>
+            </div>
+        </div>
+
+        <!-- Repository Selection -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-semibold mb-4">Select Repository</h2>
+            <select id="repo-select" class="w-full p-2 border border-gray-300 rounded-md mb-4">
+                <option value="">Choose a repository...</option>
+                {% for repo in repos %}
+                <option value="{{ repo.full_name }}">{{ repo.full_name }} ({{ repo.default_branch }})</option>
+                {% endfor %}
+            </select>
+            <button onclick="loadRepositories()" class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-200">
+                Refresh Repositories
+            </button>
+        </div>
+
+        <!-- Pattern Generator -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-semibold mb-4">Create Pattern</h2>
+            <div class="mb-4">
+                <label class="block text-gray-700 mb-2">Enter text (A-Z, 0-9, space):</label>
+                <input type="text" id="pattern-text" maxlength="20" placeholder="Enter your text (max 20 chars)" 
+                       class="w-full p-2 border border-gray-300 rounded-md">
+                <p class="text-sm text-gray-500 mt-1">Only letters, numbers, and spaces are supported</p>
+            </div>
+            <div class="flex gap-4">
+                <button onclick="previewPattern()" class="bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600 transition duration-200">
+                    Preview Pattern
+                </button>
+                <button onclick="generatePattern()" class="bg-purple-500 text-white py-2 px-6 rounded-md hover:bg-purple-600 transition duration-200">
+                    Generate & Deploy
+                </button>
+            </div>
+        </div>
+
+        <!-- Preview Section -->
+        <div id="preview-section" class="hidden bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-semibold mb-4">Pattern Preview</h2>
+            <div class="mb-4">
+                <div id="svg-preview" class="flex justify-center mb-4"></div>
+                <div id="pattern-info" class="text-gray-600"></div>
+            </div>
+            
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold mb-2">Commit Dates:</h3>
+                <div id="commit-dates" class="bg-gray-50 p-4 rounded-md max-h-40 overflow-y-auto text-sm"></div>
+            </div>
+
+            <div id="workflow-info" class="hidden bg-green-50 border border-green-200 rounded-md p-4">
+                <h3 class="text-lg font-semibold text-green-800 mb-2">✓ Workflow Created Successfully!</h3>
+                <p class="text-green-700">The GitHub Actions workflow has been created in your repository.</p>
+                <p class="text-green-700 mt-2">Commits will automatically be made on the scheduled dates.</p>
+                <p class="text-green-700 mt-2"><strong>Note:</strong> It may take a few hours for GitHub to show the commits in your contribution graph.</p>
+            </div>
+        </div>
+
+        <!-- History Section -->
+        <div id="history-section" class="hidden bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-semibold mb-4">Your Pattern History</h2>
+            <div class="space-y-4">
+                {% for pattern in patterns %}
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-lg font-semibold">"{{ pattern.text_pattern }}"</h3>
+                            <p class="text-gray-600">Repository: {{ pattern.repo_name }}</p>
+                            <p class="text-gray-600">Created: {{ pattern.created_at }}</p>
+                            <p class="text-gray-600">Status: {% if pattern.workflow_created %}✓ Deployed{% else %}❌ Failed{% endif %}</p>
+                        </div>
+                        <button onclick="viewPatternDetails('{{ pattern.id }}')" class="bg-blue-500 text-white py-1 px-3 rounded text-sm hover:bg-blue-600">
+                            View Details
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-gray-600 text-center">No patterns created yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-blue-800 mb-2">How It Works</h3>
+            <ul class="list-disc list-inside text-blue-700 space-y-1">
+                <li>Select a repository where you want the pattern to appear</li>
+                <li>Enter the text you want to display (max 20 characters)</li>
+                <li>Preview the pattern and commit dates</li>
+                <li>Generate the workflow - this will create a GitHub Actions workflow file</li>
+                <li>The workflow will automatically create commits on the scheduled dates</li>
+                <li>Your GitHub contribution graph will show the text pattern over time</li>
+                <li><strong>Important:</strong> Make sure the repository is public and  given has access to write the repository</li>
+                <li>If any error occurs, manually create the .github/workflows directory in the selected repo and give access to write.</li>
+                <li>If nothing works copy paste the dates to create a yaml file on .github/workflows to commit on that dates.
+                <li><strong>Note:</strong> The commits will appear in the repository's contribution graph</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loading" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
+                    <svg class="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mt-2">Processing...</h3>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function previewPattern() {
+            const text = document.getElementById('pattern-text').value.trim();
+            const repoSelect = document.getElementById('repo-select');
+            
+            if (!text) {
+                alert('Please enter some text');
+                return;
+            }
+
+            if (!repoSelect.value) {
+                alert('Please select a repository first');
+                return;
+            }
+
+            showLoading();
+            try {
+                const response = await fetch('/preview', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayPreview(data);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while generating preview');
+            }
+            hideLoading();
+        }
+
+        async function generatePattern() {
+            const text = document.getElementById('pattern-text').value.trim();
+            const repoSelect = document.getElementById('repo-select');
+            
+            if (!text) {
+                alert('Please enter some text');
+                return;
+            }
+
+            if (!repoSelect.value) {
+                alert('Please select a repository');
+                hideLoading();
+                return;
+            }
+
+            showLoading();
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        text: text,
+                        repo: repoSelect.value
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayPreview(data);
+                    if (data.workflow_created) {
+                        document.getElementById('workflow-info').classList.remove('hidden');
+                        // Reload page to show updated history
+                        setTimeout(() => window.location.reload(), 2000);
+                    } else {
+                        alert('Workflow creation failed: ' + (data.workflow_error?.message || 'Unknown error'));
+                    }
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while generating pattern');
+            }
+            hideLoading();
+        }
+
+        function displayPreview(data) {
+            // Show SVG
+            document.getElementById('svg-preview').innerHTML = data.svg;
+            
+            // Show pattern info
+            document.getElementById('pattern-info').innerHTML = `
+                <p><strong>Text:</strong> ${data.text}</p>
+                <p><strong>Start Date:</strong> ${data.start_date} (Next Sunday)</p>
+                <p><strong>Total Weeks:</strong> ${data.weeks_count}</p>
+                <p><strong>Total Commits:</strong> ${data.commit_dates.length}</p>
+            `;
+            
+            // Show commit dates
+            const datesHtml = data.commit_dates.map(date => 
+                `<div class="py-1 border-b border-gray-200 last:border-b-0">${date}</div>`
+            ).join('');
+            document.getElementById('commit-dates').innerHTML = datesHtml;
+            
+            // Show preview section
+            document.getElementById('preview-section').classList.remove('hidden');
+            document.getElementById('history-section').classList.add('hidden');
+            
+            // Hide workflow info if it was shown before
+            document.getElementById('workflow-info').classList.add('hidden');
+        }
+
+        function showHistory() {
+            document.getElementById('history-section').classList.remove('hidden');
+            document.getElementById('preview-section').classList.add('hidden');
+        }
+
+        function viewPatternDetails(patternId) {
+            alert('Pattern details for ID: ' + patternId + '\nIn a full implementation, this would show detailed information.');
+        }
+
+        function showLoading() {
+            document.getElementById('loading').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.add('hidden');
+        }
+
+        function loadRepositories() {
+            window.location.reload();
+        }
+
+        function logout() {
+            // Clear session and redirect to home
+            fetch('/logout').then(() => {
+                window.location.href = '/';
+            });
+        }
+    </script>
+</body>
+</html>
