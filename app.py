@@ -279,7 +279,7 @@ def login():
     state = secrets.token_urlsafe(16)
     session['oauth_state'] = state
     
-    redirect_uri = 'http://127.0.0.1:5000/authorize'
+    redirect_uri = 'https://autcom.onrender.com/authorize'
     return github.authorize_redirect(redirect_uri, state=state)
 
 @app.route('/authorize')
@@ -458,3 +458,4 @@ def logout():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
