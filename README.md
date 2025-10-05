@@ -25,6 +25,9 @@ This Flask web app lets users log in with GitHub, choose a repository, and gener
 
 ---
 
+<img width="865" height="168" alt="image" src="https://github.com/user-attachments/assets/292e9c30-5423-4c2e-bfb4-e2fe32de5dd5" />
+
+
 ## 📦 Installation
 1. Clone the repository:
    ```bash
@@ -37,7 +40,7 @@ Set up environment variables in .env:
 SECRET_KEY=your_secret_key
 GITHUB_CLIENT_ID=your_client_id
 GITHUB_CLIENT_SECRET=your_client_secret
-'''
 
 python app.py
+'''
 
